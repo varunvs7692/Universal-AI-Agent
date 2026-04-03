@@ -14,7 +14,7 @@ class UniversalAIAgent:
     """
     Modular, plugin-ready Universal AI Agent for text, voice, image, translation, and device integration.
     """
-    def __init__(self, language: str = 'en', model_name: str = 'google/gemma-2b-it'):
+    def __init__(self, language: str = 'en', model_name: str = 'google/gemma-2b-it', translation_model_name: str = 'facebook/nllb-200-distilled-600M'):
         self.language = language
         self.model_name = model_name
         self.model = None
@@ -23,8 +23,8 @@ class UniversalAIAgent:
         self.speech_recognizer = sr.Recognizer()
         self.tts_engine = pyttsx3.init()
         self.vision_model = None
-        self.translation_model = None
-        self.translation_tokenizer = None
+        from universal_ai_agent.providers.huggingface import MultilingualTranslationProvider
+        self.translation_provider = MultilingualTranslationProvider(translation_model_name)
         self.plugins = {}
         self._init_modules()
 
@@ -37,14 +37,6 @@ class UniversalAIAgent:
         except Exception as e:
             print(f"[Warning] Could not load Gemma model: {e}")
             self.text_pipeline = None
-        # Load translation model (MarianMT as example)
-        try:
-            translation_model_name = 'Helsinki-NLP/opus-mt-en-ROMANCE'
-            self.translation_tokenizer = MarianTokenizer.from_pretrained(translation_model_name)
-            self.translation_model = MarianMTModel.from_pretrained(translation_model_name)
-        except Exception as e:
-            print(f"[Warning] Could not load translation model: {e}")
-            self.translation_model = None
         # Load vision model (BLIP)
         try:
             self.vision_model = VisionPlugin()
@@ -80,12 +72,16 @@ class UniversalAIAgent:
             return f"[Gemma4] (image) Vision model not available."
 
     def translate(self, text: str, target_language: str) -> str:
-        if self.translation_model and self.translation_tokenizer:
-            batch = self.translation_tokenizer([text], return_tensors="pt", padding=True)
-            gen = self.translation_model.generate(**batch, forced_bos_token_id=self.translation_tokenizer.lang_code_to_id.get(target_language, None))
-            out = self.translation_tokenizer.batch_decode(gen, skip_special_tokens=True)
-            return out[0]
-        return f"[Gemma4] (translate) {text} -> {target_language} (translation model integration needed)"
+        try:
+            return self.translation_provider.translate(text, target_language)
+        except Exception as e:
+            return f"[Gemma4] (translate) {text} -> {target_language} (translation error: {e})"
+
+    def detect_language(self, text: str) -> str:
+        try:
+            return self.translation_provider.detect_language(text)
+        except Exception as e:
+            return f"[Gemma4] (detect_language) error: {e}"
 
     def speak(self, text: str):
         if self.tts_engine:

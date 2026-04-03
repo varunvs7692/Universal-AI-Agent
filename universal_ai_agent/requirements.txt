@@ -1,0 +1,16 @@
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+sounddevice
+speechrecognition
+pillow
+transformers
+sentencepiece
+torch
+langchain
+pyttsx3
+pytest
+langdetect
+streamlit
